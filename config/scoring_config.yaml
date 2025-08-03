@@ -1,0 +1,35 @@
+# Scoring Configuration
+
+# Bayesian adjustment settings
+bayesian:
+  prior_weight: 100  # Weight of prior average in adjustment calculation
+
+# Composite score weights
+service_quality_weights:
+  treatment_satisfaction: 0.30
+  post_op: 0.20
+  staff_satisfaction: 0.30
+  facility: 0.20
+
+communication_weights:
+  onsite_communication: 0.40
+  scheduling: 0.20
+  online_communication: 0.40  # Calculated from response quality
+
+# Score calculation settings
+scoring:
+  # Minimum reviews required for scoring
+  min_reviews_for_scoring: 5
+  # Rating scale (usually 1-5 for Google/Trustpilot)
+  rating_scale:
+    min: 1
+    max: 5
+  # NPS calculation includes only scores 1-3 (excludes 0=not mentioned)
+  nps_include_scores: [1, 2, 3]
+
+# Online communication scoring rules
+online_communication_rules:
+  no_complaint: 0           # Not applicable
+  complaint_no_response: 1  # Negative
+  complaint_response_poor: 2  # Neutral
+  complaint_response_good: 3  # Positive

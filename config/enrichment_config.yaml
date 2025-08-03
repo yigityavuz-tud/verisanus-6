@@ -1,0 +1,78 @@
+# Enrichment Configuration
+
+# Target establishments (empty = process all)
+target_establishments: []
+
+# Review attributes to analyze
+sentiment_attributes:
+  staff_satisfaction:
+    description: "Sentiment about any kind of staff (owner, nurses, doctors, receptionist, etc.)"
+    enabled: true
+    
+  scheduling:
+    description: "Sentiment about wait times, proper scheduling, good timing, sticking with appointments"
+    enabled: true
+    
+  treatment_satisfaction:
+    description: "Sentiment about clinical competence, effectiveness, expert competency and knowledgeability"
+    enabled: true
+    
+  onsite_communication:
+    description: "Sentiment about clear explanation of procedures, answering questions, no language barriers"
+    enabled: true
+    
+  facility:
+    description: "Sentiment about cleanliness, modern equipment, sufficient amenities"
+    enabled: true
+    
+  post_op:
+    description: "Sentiment about follow-up communication and attention post operation"
+    enabled: true
+    
+  affordability:
+    description: "Sentiment about price level and affordability (cheap=positive, expensive=negative)"
+    enabled: true
+    
+  recommendation:
+    description: "Does the review indicate recommendation or would the patient visit again?"
+    enabled: true
+    
+  accommodation_transportation:
+    description: "Sentiment about accommodation and transportation services"
+    enabled: true
+
+# Complaint classification
+complaint_attribute:
+  is_complaint:
+    description: "Does the review include any complaint?"
+    enabled: true
+
+# Response analysis (only for reviews with complaints and responses)
+response_attributes:
+  has_constructive_response:
+    description: "Does the response explain the situation or offer a solution?"
+    requires: ["has_response", "is_complaint"]
+    enabled: true
+    
+  has_no_threat:
+    description: "Does the response threaten the reviewer with legal action?"
+    requires: ["has_response", "is_complaint"]
+    enabled: true
+
+# Processing settings
+processing:
+  # Reviews per API batch
+  batch_size: 25
+  # Sentiment attributes per batch (to avoid token limits)
+  sentiment_batch_size: 3
+  # Minimum review length to process
+  min_review_length: 10
+  # Token usage limit (70% of 1M)
+  max_tokens: 700000
+  # Retry attempts for failed API calls
+  max_retries: 3
+
+# AI model settings
+ai_model:
+  name: "gemini-2.5-flash"
+  temperature: 0.1

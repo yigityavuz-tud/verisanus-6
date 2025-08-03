@@ -1,0 +1,33 @@
+# Scraping Configuration
+google_maps:
+  actor_id: "Xb8osYTtOjlsgI6k9"
+  settings:
+    language: "en"
+    max_reviews: 99999
+    personal_data: false
+    reviews_sort: "newest"
+    reviews_origin: "all"
+
+trustpilot:
+  actor_id: "fLXimoyuhE1UQgDbM"
+  settings:
+    count: 99999
+    replies: false
+    start_page: 1
+    verified: false
+    languages: "all"
+
+# Processing settings
+processing:
+  batch_size: 1000
+  retry_attempts: 3
+  delay_between_batches: 1  # seconds
+
+# Database settings
+database:
+  name: "review_scraper"
+  collections:
+    establishments: "establishments"
+    google_reviews: "google_reviews"
+    trustpilot_reviews: "trustpilot_reviews"
+    unified_reviews: "unified_reviews"
