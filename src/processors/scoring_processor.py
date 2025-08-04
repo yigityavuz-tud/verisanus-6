@@ -307,6 +307,11 @@ class ScoringProcessor(BaseProcessor):
                 results["communication_score"] = communication_score
                 results["communication_score_normalized"] = self._normalize_nps_score(communication_score)
             
+            # Calculate final clinic score (0-100 range)
+            clinic_score = self._calculate_clinic_score(results, normalized_nps_scores)
+            if clinic_score is not None:
+                results["clinic_score"] = clinic_score
+            
             return results
             
         except Exception as e:
@@ -366,6 +371,41 @@ class ScoringProcessor(BaseProcessor):
         
         nps_score = ((weighted_positive - weighted_negative) / total_weight) * 100
         return round(nps_score, 2)
+    
+    def _calculate_clinic_score(self, results: Dict, normalized_nps_scores: Dict) -> Optional[int]:
+        """
+        Calculate final clinic score by averaging all normalized NPS scores and weighted star rating.
+        
+        Args:
+            results: Current results dictionary containing weighted_average_rating
+            normalized_nps_scores: Dictionary of normalized NPS scores for each attribute
+            
+        Returns:
+            Integer clinic score (0-100) or None if insufficient data
+        """
+        score_components = []
+        
+        # Add weighted star rating scaled to 0-100 (assuming 1-5 scale)
+        weighted_rating = results.get("weighted_average_rating")
+        if weighted_rating is not None:
+            # Scale from 1-5 to 0-100: (rating) * 20, then cap at 100
+            scaled_rating = min(100, max(0, (weighted_rating) * 20))
+            score_components.append(scaled_rating)
+        
+        # Add all normalized NPS scores (including special case for online_communication)
+        for attribute in self.sentiment_attributes:
+            if attribute in normalized_nps_scores:
+                score_components.append(normalized_nps_scores[attribute])
+            elif attribute == 'online_communication' and results.get('online_communication_score') == 99.99:
+                # Use 99 for the clinic score calculation (close to perfect but identifiable)
+                score_components.append(99)
+        
+        # Calculate average if we have at least one component
+        if score_components:
+            clinic_score = sum(score_components) / len(score_components)
+            return round(clinic_score)
+        
+        return None
     
     def _calculate_composite_score(self, individual_scores: Dict, weights: Dict) -> Optional[float]:
         """Calculate weighted composite score."""
