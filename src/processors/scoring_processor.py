@@ -1,5 +1,6 @@
 """
 Scoring processor - calculates clinic scores based on enriched review data with weighted scoring.
+Enhanced with positive percentage calculations and normalized NPS scores.
 """
 
 import statistics
@@ -29,6 +30,13 @@ class ScoringProcessor(BaseProcessor):
             'scheduling': 0.20,
             'online_communication': 0.40
         })
+        
+        # Define attributes for which we calculate percentages
+        self.sentiment_attributes = [
+            'staff_satisfaction', 'scheduling', 'treatment_satisfaction', 
+            'onsite_communication', 'facility', 'post_op', 'affordability', 
+            'recommendation', 'online_communication'
+        ]
     
     def process_all_establishments(self, establishment_ids: List[str] = None) -> Dict[str, int]:
         """
@@ -119,6 +127,53 @@ class ScoringProcessor(BaseProcessor):
         
         return round(raw_average, 3), round(weighted_average, 3)
     
+    def _calculate_positive_percentage(self, scores: List[int], weights: List[float] = None) -> Tuple[Optional[int], Optional[int]]:
+        """
+        Calculate percentage of positive (score=3) responses among valid scores (1,2,3).
+        
+        Args:
+            scores: List of sentiment scores
+            weights: Optional list of weights for weighted calculation
+            
+        Returns:
+            Tuple of (unweighted_percentage, weighted_percentage)
+        """
+        # Filter valid scores (1, 2, 3)
+        include_scores = self.config.get('scoring', {}).get('nps_include_scores', [1, 2, 3])
+        valid_indices = [i for i, score in enumerate(scores) if score in include_scores]
+        
+        if not valid_indices:
+            return None, None
+        
+        valid_scores = [scores[i] for i in valid_indices]
+        
+        # Unweighted percentage
+        positive_count = sum(1 for score in valid_scores if score == 3)
+        unweighted_pct = round((positive_count / len(valid_scores)) * 100) if valid_scores else None
+        
+        # Weighted percentage
+        weighted_pct = None
+        if weights and len(weights) == len(scores):
+            valid_weights = [weights[i] for i in valid_indices]
+            
+            weighted_positive = sum(weight for i, weight in enumerate(valid_weights) if valid_scores[i] == 3)
+            total_weight = sum(valid_weights)
+            
+            weighted_pct = round((weighted_positive / total_weight) * 100) if total_weight > 0 else None
+        
+        return unweighted_pct, weighted_pct
+    
+    def _normalize_nps_score(self, nps_score: float) -> int:
+        """
+        Convert NPS score from -100/+100 scale to 0-100 scale.
+        -100 -> 0, 0 -> 50, +100 -> 100
+        """
+        if nps_score is None:
+            return None
+        
+        normalized = round((nps_score + 100) / 2)
+        return max(0, min(100, normalized))  # Ensure it's within 0-100 range
+    
     def _calculate_establishment_scores(self, establishment_id: str) -> Dict:
         """Calculate all scores for a single establishment."""
         try:
@@ -171,20 +226,36 @@ class ScoringProcessor(BaseProcessor):
                     attribute_scores['online_communication']["weights"].append(weight)
                 
                 # Collect other attribute scores
-                for attribute in ['staff_satisfaction', 'scheduling', 'treatment_satisfaction', 
-                                'onsite_communication', 'facility', 'post_op', 'affordability', 
-                                'recommendation']:
-                    score = enriched.get(attribute)
-                    if score is not None:
-                        attribute_scores[attribute]["scores"].append(score)
-                        attribute_scores[attribute]["weights"].append(weight)
+                for attribute in self.sentiment_attributes:
+                    if attribute != 'online_communication':  # Already handled above
+                        score = enriched.get(attribute)
+                        if score is not None:
+                            attribute_scores[attribute]["scores"].append(score)
+                            attribute_scores[attribute]["weights"].append(weight)
             
-            # Calculate weighted NPS scores for each attribute
+            # Calculate NPS scores, normalized NPS, and positive percentages for each attribute
             nps_scores = {}
+            normalized_nps_scores = {}
+            positive_percentages = {}
+            
             for attribute, data in attribute_scores.items():
+                # Calculate weighted NPS score (-100 to +100)
                 nps_score = self._calculate_weighted_nps_score(data["scores"], data["weights"])
                 if nps_score is not None:
                     nps_scores[attribute] = nps_score
+                    # Calculate normalized NPS (0 to 100)
+                    normalized_nps_scores[attribute] = self._normalize_nps_score(nps_score)
+                
+                # Calculate positive percentages (unweighted and weighted)
+                unweighted_pct, weighted_pct = self._calculate_positive_percentage(
+                    data["scores"], data["weights"]
+                )
+                
+                if unweighted_pct is not None or weighted_pct is not None:
+                    positive_percentages[attribute] = {
+                        "unweighted": unweighted_pct,
+                        "weighted": weighted_pct
+                    }
             
             # Calculate composite scores using weighted NPS scores
             service_quality_score = self._calculate_composite_score(
@@ -208,21 +279,33 @@ class ScoringProcessor(BaseProcessor):
             if weighted_rating is not None:
                 results["weighted_average_rating"] = weighted_rating
             
-            # Add individual NPS scores
-            for attribute in ['affordability', 'recommendation']:
+            # Add individual NPS scores and their normalized versions
+            for attribute in self.sentiment_attributes:
                 if attribute in nps_scores:
                     results[f"{attribute}_score"] = nps_scores[attribute]
+                    results[f"{attribute}_score_normalized"] = normalized_nps_scores[attribute]
+                
+                # Add positive percentages
+                if attribute in positive_percentages:
+                    pct_data = positive_percentages[attribute]
+                    if pct_data["unweighted"] is not None:
+                        results[f"{attribute}_pct"] = pct_data["unweighted"]
+                    if pct_data["weighted"] is not None:
+                        results[f"{attribute}_pct_weighted"] = pct_data["weighted"]
             
-            # Add composite scores
+            # Special handling for online_communication: assign 99.99 if no viable score
+            if 'online_communication' not in nps_scores:
+                results["online_communication_score"] = 99.99
+                # No normalized score or percentages for this case
+            
+            # Add composite scores and their normalized versions
             if service_quality_score is not None:
                 results["service_quality_score"] = service_quality_score
+                results["service_quality_score_normalized"] = self._normalize_nps_score(service_quality_score)
             
             if communication_score is not None:
                 results["communication_score"] = communication_score
-            
-            # Add online communication score separately for transparency
-            if 'online_communication' in nps_scores:
-                results["online_communication_score"] = nps_scores['online_communication']
+                results["communication_score_normalized"] = self._normalize_nps_score(communication_score)
             
             return results
             

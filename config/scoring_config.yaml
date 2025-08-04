@@ -34,7 +34,7 @@ review_weights:
 
 # Online communication scoring rules
 online_communication_rules:
-  no_complaint: 0           # Not applicable
+  no_complaint: 99          # Give benefit of doubt when no complaint data
   complaint_no_response: 1  # Negative
   complaint_response_poor: 2  # Neutral
   complaint_response_good: 3  # Positive
