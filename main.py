@@ -12,6 +12,7 @@ from pathlib import Path
 # Add src directory to Python path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+# Import with absolute paths from src
 from scrapers.excel_reader import ExcelReader
 from scrapers.apify_client import ApifyClient
 from processors.unification_processor import UnificationProcessor

@@ -11,7 +11,7 @@ from bson import ObjectId
 from pymongo import UpdateOne
 import google.generativeai as genai
 
-from ..core.base_processor import BaseProcessor
+from core.base_processor import BaseProcessor
 
 class EnrichmentProcessor(BaseProcessor):
     """Processes reviews to extract sentiment and other attributes using AI."""

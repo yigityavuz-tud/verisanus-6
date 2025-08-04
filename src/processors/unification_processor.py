@@ -6,7 +6,7 @@ from typing import Dict, List, Set
 from datetime import datetime
 from bson import ObjectId
 
-from ..core.base_processor import BaseProcessor
+from core.base_processor import BaseProcessor
 
 class UnificationProcessor(BaseProcessor):
     """Processes raw reviews into unified format."""
