@@ -18,6 +18,7 @@ from scrapers.apify_client import ApifyClient
 from processors.unification_processor import UnificationProcessor
 from processors.enrichment_processor import EnrichmentProcessor
 from processors.scoring_processor import ScoringProcessor
+from processors.cms_processor import CMSProcessor
 from core.database import DatabaseManager
 
 def setup_logging(verbose: bool = False):
@@ -270,6 +271,33 @@ def score_clinics(args):
     finally:
         processor.cleanup()
 
+def update_cms(args):
+    """Update CMS data from establishments collection."""
+    print("📊 Starting CMS update...")
+    
+    processor = CMSProcessor(args.cms_directory)
+    
+    try:
+        if not processor.initialize():
+            print("❌ Failed to initialize CMS processor")
+            return False
+        
+        success = processor.process_cms_update()
+        
+        if not args.quick:
+            stats = processor.get_processing_stats()
+            print("\n📊 CMS Update Statistics:")
+            for key, value in stats.items():
+                print(f"{key}: {value}")
+        
+        return success
+        
+    except Exception as e:
+        print(f"❌ CMS update failed: {e}")
+        return False
+    finally:
+        processor.cleanup()
+
 def show_stats(args):
     """Show database statistics."""
     print("📊 Fetching database statistics...")
@@ -311,6 +339,7 @@ Examples:
   %(prog)s unify --quick
   %(prog)s enrich --attributes sentiment,complaint
   %(prog)s score --establishments "id1,id2"
+  %(prog)s cms --cms-directory "C:/path/to/cms"
   %(prog)s stats
         """
     )
@@ -352,6 +381,13 @@ Examples:
     score_parser.add_argument('--quick', action='store_true', 
                              help='Quick mode with minimal output')
     
+    # CMS command
+    cms_parser = subparsers.add_parser('cms', help='Update CMS data from establishments')
+    cms_parser.add_argument('--cms-directory', default=r'C:\Users\yigit\Desktop\Enterprises\verisanus-6\cms',
+                           help='Path to CMS directory')
+    cms_parser.add_argument('--quick', action='store_true', 
+                           help='Quick mode with minimal output')
+    
     # Stats command
     subparsers.add_parser('stats', help='Show database statistics')
     
@@ -374,6 +410,8 @@ Examples:
             success = enrich_reviews(args)
         elif args.command == 'score':
             success = score_clinics(args)
+        elif args.command == 'cms':
+            success = update_cms(args)
         elif args.command == 'stats':
             success = show_stats(args)
         else:
